@@ -1,3 +1,5 @@
+// C:\Users\deves\Desktop\project\app\layout.tsx
+
 import './globals.css';
 import type { Metadata } from 'next';
 import { ThemeProvider } from '@/src/components/providers/theme-provider';

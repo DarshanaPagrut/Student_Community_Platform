@@ -1,129 +1,169 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
-import { Button } from '../ui/button';
-import { Send, Bot, User, Plus, MessageCircle, Clock, Trash2, Menu } from 'lucide-react';
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "../ui/card";
+import { Button } from "../ui/button";
+import {
+  Send,
+  Loader2,
+  Bot,
+  User,
+  Plus,
+  Clock,
+  MessageCircle,
+  Trash2,
+  Menu,
+} from "lucide-react";
 
 interface Message {
-  id: number;
+  id: string;
   text: string;
-  sender: 'user' | 'ai';
-  timestamp: Date;
+  sender: "user" | "ai";
+  timestamp: string;
 }
 
-interface ChatHistory {
-  id: number;
+interface ChatMeta {
+  id: string;
   title: string;
-  lastMessage: string;
-  timestamp: Date;
   messageCount: number;
+  timestamp: string;
 }
 
 export default function AiDoubtSolver() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: "Hi! I'm your AI doubt solver. Ask me anything about Data Structures, Algorithms, or programming concepts!",
-      sender: 'ai',
-      timestamp: new Date()
-    }
-  ]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
-  const [currentChatId, setCurrentChatId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [chatHistory, setChatHistory] = useState<ChatMeta[]>([]);
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages added
   useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    if (!chatId) {
+      setMessages([]);
+      return;
     }
-  }, [messages]);
+    fetch(`/api/chat?chatId=${chatId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setMessages(
+          data.messages.map((m: any) => ({
+            id: `${m.timestamp?.seconds || Date.now()}-${m.sender}`,
+            text: m.text,
+            sender: m.sender,
+            timestamp: m.timestamp?.seconds
+              ? new Date(m.timestamp.seconds * 1000).toISOString()
+              : new Date().toISOString(),
+          }))
+        );
+        scrollToBottom();
+      });
+  }, [chatId]);
 
-  const handleSendMessage = () => {
-    if (!inputMessage.trim()) return;
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+    }, 100);
+  };
 
-    const userMessage: Message = {
-      id: messages.length + 1,
-      text: inputMessage,
-      sender: 'user',
-      timestamp: new Date()
+  const sendMessage = async (overrideText?: string) => {
+    const text = overrideText ?? inputMessage.trim();
+    if (!text) return;
+    setIsLoading(true);
+
+    const userMsg: Message = {
+      id: `${Date.now()}-user`,
+      text,
+      sender: "user",
+      timestamp: new Date().toISOString(),
     };
+    setMessages((m) => [...m, userMsg]);
+    setInputMessage("");
+    scrollToBottom();
 
-    // Simulated AI response
-    let aiResponseText = "That's a great question! Let me help you understand this concept.";
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId, text }),
+      });
+      if (!res.ok) throw new Error("Network error");
+      const { chatId: newId, aiText } = await res.json();
+      setChatId(newId);
 
-    if (inputMessage.toLowerCase().includes('binary search')) {
-      aiResponseText = "Binary search is an efficient algorithm for finding an item from a sorted list...";
+      const aiMsg: Message = {
+        id: `${Date.now()}-ai`,
+        text: aiText,
+        sender: "ai",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((m) => [...m, aiMsg]);
+      scrollToBottom();
+
+      const title = text.slice(0, 40);
+      setChatHistory((prev) => {
+        const existing = prev.find((chat) => chat.id === newId);
+        if (existing) {
+          return prev.map((c) =>
+            c.id === newId
+              ? {
+                  ...c,
+                  title,
+                  messageCount: c.messageCount + 2,
+                  timestamp: new Date().toISOString(),
+                }
+              : c
+          );
+        } else {
+          return [
+            {
+              id: newId,
+              title,
+              messageCount: 2,
+              timestamp: new Date().toISOString(),
+            },
+            ...prev,
+          ];
+        }
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
-
-    const aiMessage: Message = {
-      id: messages.length + 2,
-      text: aiResponseText,
-      sender: 'ai',
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage, aiMessage]);
-    setInputMessage('');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault();
-      handleSendMessage();
+      sendMessage();
     }
   };
 
-  const startNewChat = () => {
-    setMessages([
-      {
-        id: 1,
-        text: "Hi! I'm your AI doubt solver. Ask me anything about Data Structures, Algorithms, or programming concepts!",
-        sender: 'ai',
-        timestamp: new Date()
-      }
-    ]);
-    setCurrentChatId(null);
+  const handleDelete = (id: string) => {
+    setChatHistory((prev) => prev.filter((c) => c.id !== id));
+    if (chatId === id) setChatId(null);
   };
 
-  const loadChatHistory = (chatId: number) => {
-    const chat = chatHistory.find(c => c.id === chatId);
-    if (chat) {
-      setCurrentChatId(chatId);
-      setMessages([
-        {
-          id: 1,
-          text: "Hi! I'm your AI doubt solver. Ask me anything about Data Structures, Algorithms, or programming concepts!",
-          sender: 'ai',
-          timestamp: new Date()
-        },
-        {
-          id: 2,
-          text: `Let's continue our discussion about "${chat.title}"`,
-          sender: 'ai',
-          timestamp: new Date()
-        }
-      ]);
-    }
-  };
-
-  const deleteChatHistory = (chatId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setChatHistory(prev => prev.filter(chat => chat.id !== chatId));
-    if (currentChatId === chatId) startNewChat();
-  };
-
-  const formatTimestamp = (timestamp: Date) => {
+  const formatRelativeTime = (timestamp: string) => {
     const now = new Date();
-    const diff = now.getTime() - timestamp.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const past = new Date(timestamp);
+    const diff = now.getTime() - past.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
-    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
-    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-    return 'Just now';
+
+    if (days > 0) return `${days}d ago`;
+    if (hours > 0) return `${hours}h ago`;
+    if (minutes > 0) return `${minutes} min ago`;
+    return "Just now";
   };
 
   return (
@@ -144,57 +184,55 @@ export default function AiDoubtSolver() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar */}
         {isSidebarOpen && (
-          <div className="lg:col-span-1">
+          <aside className="lg:col-span-1">
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle className="text-lg">Chat History</CardTitle>
-                  <Button size="sm" onClick={startNewChat}>
-                    <Plus className="h-4 w-4 mr-2" /> New
+                  <Button size="sm" onClick={() => setChatId(null)}>
+                    <Plus className="h-4 w-4 mr-1" /> New
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="h-[520px] overflow-y-auto">
-                <div className="space-y-2">
-                  {chatHistory.map(chat => (
-                    <div
-                      key={chat.id}
-                      onClick={() => loadChatHistory(chat.id)}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors group relative ${
-                        currentChatId === chat.id
-                          ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800'
-                          : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
-                      }`}
-                    >
-                      <h4 className="text-sm font-medium truncate pr-8">{chat.title}</h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                        {chat.lastMessage}
-                      </p>
-                      <div className="flex items-center space-x-2 mt-2 text-xs text-gray-400">
-                        <MessageCircle className="h-3 w-3" />
-                        <span>{chat.messageCount}</span>
-                        <Clock className="h-3 w-3" />
-                        <span>{formatTimestamp(chat.timestamp)}</span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 h-6 w-6"
-                        onClick={e => deleteChatHistory(chat.id, e)}
-                      >
-                        <Trash2 className="h-3 w-3 text-red-500" />
-                      </Button>
+              <CardContent className="h-[520px] space-y-2 pr-6 overflow-y-auto scrollbar-hide">
+                {chatHistory.map((chat) => (
+                  <div
+                    key={chat.id}
+                    onClick={() => setChatId(chat.id)}
+                    className={`p-3 rounded-lg cursor-pointer transition-colors relative border text-sm ${
+                      chat.id === chatId
+                        ? "bg-blue-100 text-blue-900 border-blue-300"
+                        : "bg-white hover:bg-gray-100 text-gray-800 border-gray-200"
+                    }`}
+                  >
+                    <h4 className="font-medium truncate pr-8">{chat.title}</h4>
+                    <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
+                      <MessageCircle className="h-3 w-3" />
+                      <span>{chat.messageCount}</span>
+                      <Clock className="h-3 w-3" />
+                      <span>{formatRelativeTime(chat.timestamp)}</span>
                     </div>
-                  ))}
-                </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="absolute top-2 right-2 p-1 h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(chat.id);
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3 text-red-500" />
+                    </Button>
+                  </div>
+                ))}
               </CardContent>
             </Card>
-          </div>
+          </aside>
         )}
 
         {/* Chat Window */}
-        <div className={`${isSidebarOpen ? 'lg:col-span-3' : 'col-span-4'}`}>
-          <Card className="h-[600px] flex flex-col">
+        <section className={`${isSidebarOpen ? "lg:col-span-3" : "col-span-4"} h-full`}>
+          <Card className="h-full flex flex-col">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Bot className="h-5 w-5 mr-2 text-blue-600" />
@@ -203,62 +241,101 @@ export default function AiDoubtSolver() {
             </CardHeader>
 
             <CardContent className="flex-1 flex flex-col min-h-0">
+              {/* Scrollable chat messages */}
               <div
                 ref={chatContainerRef}
-                className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2 min-h-0 max-h-full"
+                className="flex-1 overflow-y-auto px-0 py-1 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
+                style={{ maxHeight: "calc(100vh - 18rem)" }} // Adjust this value to control height
               >
-                {messages.map((message) => (
-                  <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`flex items-start space-x-2 max-w-[85%] ${
-                      message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                    }`}>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        message.sender === 'user' ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
-                      }`}>
-                        {message.sender === 'user' ? (
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`flex items-start space-x-2 max-w-[85%] ${
+                        msg.sender === "user" ? "flex-row-reverse space-x-reverse" : ""
+                      }`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          msg.sender === "user" ? "bg-blue-600" : "bg-gray-200 dark:bg-gray-700"
+                        }`}
+                      >
+                        {msg.sender === "user" ? (
                           <User className="h-4 w-4 text-white" />
                         ) : (
                           <Bot className="h-4 w-4 text-gray-600 dark:text-gray-300" />
                         )}
                       </div>
-                      <div className={`rounded-lg p-3 ${
-                        message.sender === 'user'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
-                      }`}>
-                        <p className="text-sm whitespace-pre-wrap">{message.text}</p>
-                        <p className={`text-xs mt-1 ${
-                          message.sender === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <div
+                        className={`rounded-lg p-3 break-words ${
+                          msg.sender === "user"
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap break-words">
+                          {msg.text}
+                        </p>
+                        <p
+                          className={`text-xs mt-1 ${
+                            msg.sender === "user" ? "text-blue-100" : "text-gray-500 dark:text-gray-400"
+                          }`}
+                        >
+                          {new Date(msg.timestamp).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </p>
                       </div>
                     </div>
                   </div>
                 ))}
+
+                {/* Typing loader */}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="flex items-start space-x-2 max-w-[85%]">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                        <Bot className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                      </div>
+                      <div className="rounded-lg p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse delay-200" />
+                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse delay-400" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Input */}
-              <div className="flex space-x-2">
-                <textarea
-                  placeholder="Ask your doubt here..."
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
-                  rows={2}
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputMessage.trim()}
-                  className="self-end"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
+              {/* Fixed Input at Bottom */}
+              
+                <div className="flex space-x-1 pt-12">
+                  <textarea
+                    placeholder="Ask your doubt here..."
+                    value={inputMessage}
+                    onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    rows={2}
+                    disabled={isLoading}
+                    className="flex-1 border px-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
+                  />
+                  <Button
+                    onClick={() => sendMessage()}
+                    disabled={!inputMessage.trim() || isLoading}
+                    className="self-end"
+                  >
+                    {isLoading ? <Loader2 className="animate-spin" /> : <Send className="h-4 w-4" />}
+                  </Button>
+                </div>
+              
             </CardContent>
           </Card>
-        </div>
+        </section>
       </div>
     </div>
   );

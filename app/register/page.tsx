@@ -9,10 +9,7 @@ export default function RegisterPage() {
 
   return (
     <AuthWrapper pageType="register">
-      <Register
-      
-        onSwitchToLogin={() => router.push("/select-group")}
-      />
+      <Register onSwitchToLogin={() => router.push("/login")} />
     </AuthWrapper>
   );
 }

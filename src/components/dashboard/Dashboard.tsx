@@ -19,296 +19,151 @@ import {
   Send,
   ThumbsUp,
   Reply,
-  ChevronRight,
-  ChevronDown,
+  Star,
+  Award,
+  Zap,
 } from "lucide-react";
+import LeetCodeProblems from "./LeetCodeSheet";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useDiscussions } from "@/hooks/useDiscussions";
+import { useCollegeUpdates } from "@/hooks/useCollegeUpdates";
+import { useContests } from "@/hooks/useContests";
+import { useLeetCodeProgress } from "@/hooks/useLeetCodeProgress";
 
 export default function Dashboard() {
+  const { user, userProfile } = useAuth();
+  const { stats, loading: statsLoading } = useDashboardStats();
+  const { discussions, addDiscussion, addReply } = useDiscussions();
+  const { updates } = useCollegeUpdates();
+  const { contests, addReminder, isUserReminded } = useContests();
+  const { getProgressStats } = useLeetCodeProgress();
+  
   const [showUpdatesModal, setShowUpdatesModal] = useState(false);
   const [showDiscussionModal, setShowDiscussionModal] = useState(false);
   const [showContestsModal, setShowContestsModal] = useState(false);
-  const [showProblemsModal, setShowProblemsModal] = useState(false);
-  const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
   const [newDiscussion, setNewDiscussion] = useState("");
+  const [newDiscussionContent, setNewDiscussionContent] = useState("");
   const [newComment, setNewComment] = useState("");
-  const [expandedTopics, setExpandedTopics] = useState<string[]>([]);
-  const [problemStatus, setProblemStatus] = useState<Record<string, string>>(
-    {}
-  );
 
-  const stats = [
+  const progressStats = getProgressStats();
+
+  // Enhanced stats with real-time data
+  const displayStats = [
     {
       title: "Problems Solved",
-      value: "127",
-      change: "+12 this week",
+      value: progressStats.solvedProblems.toString(),
+      change: `+${stats?.weeklyProgress || 0} this week`,
       icon: BookOpen,
       color: "text-blue-600",
+      bgColor: "bg-blue-50 dark:bg-blue-900/20",
     },
     {
       title: "Current Streak",
-      value: "15 days",
-      change: "Personal best!",
+      value: `${stats?.currentStreak || 0} days`,
+      change: stats?.currentStreak === stats?.bestStreak ? "Personal best!" : `Best: ${stats?.bestStreak || 0}`,
       icon: TrendingUp,
       color: "text-green-600",
+      bgColor: "bg-green-50 dark:bg-green-900/20",
     },
     {
       title: "Group Rank",
-      value: "#8",
+      value: stats?.groupRank ? `#${stats.groupRank}` : "N/A",
       change: "↑2 positions",
       icon: Users,
       color: "text-purple-600",
-    },
-    {
-      title: "Contest Rank",
-      value: "#142",
-      change: "Last contest",
-      icon: Trophy,
-      color: "text-orange-600",
-    },
-    {
-      title: "Weekly Goal",
-      value: "8/10",
-      change: "80% complete",
-      icon: Target,
-      color: "text-indigo-600",
-    },
-    {
-      title: "Study Time",
-      value: "4.2h",
-      change: "Today",
-      icon: Calendar,
-      color: "text-pink-600",
+      bgColor: "bg-purple-50 dark:bg-purple-900/20",
     },
   ];
 
-  const topicProblems = {
-    Arrays: [
-      {
-        name: "Two Sum",
-        difficulty: "Easy",
-        link: "https://leetcode.com/problems/two-sum/",
-      },
-      {
-        name: "Best Time to Buy and Sell Stock",
-        difficulty: "Easy",
-        link: "https://leetcode.com/problems/best-time-to-buy-and-sell-stock/",
-      },
-      {
-        name: "Contains Duplicate",
-        difficulty: "Easy",
-        link: "https://leetcode.com/problems/contains-duplicate/",
-      },
-    ],
-    "Linked List": [
-      {
-        name: "Reverse Linked List",
-        difficulty: "Easy",
-        link: "https://leetcode.com/problems/reverse-linked-list/",
-      },
-      {
-        name: "Merge Two Sorted Lists",
-        difficulty: "Easy",
-        link: "https://leetcode.com/problems/merge-two-sorted-lists/",
-      },
-    ],
-    Stack: [],
-    Queue: [],
-    Hashing: [],
-    Graphs: [],
-    Trees: [],
-  };
-
-  const toggleTopic = (topic: string) => {
-    setExpandedTopics((prev) =>
-      prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic]
-    );
-  };
-
-  const toggleStatus = (problemName: string) => {
-    setProblemStatus((prev) => ({
-      ...prev,
-      [problemName]: prev[problemName] === "Solved" ? "Unsolved" : "Solved",
-    }));
-  };
-
-  const getBadgeStyle = (difficulty: string) => {
-    switch (difficulty) {
-      case "Easy":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-      case "Medium":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-      case "Hard":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
+  const handleAddDiscussion = async () => {
+    if (!newDiscussion.trim() || !newDiscussionContent.trim()) return;
+    
+    try {
+      await addDiscussion(newDiscussion, newDiscussionContent);
+      setNewDiscussion("");
+      setNewDiscussionContent("");
+    } catch (error) {
+      console.error("Error adding discussion:", error);
     }
   };
 
-  const dailyChallenge = {
-    title: "Valid Parentheses",
-    difficulty: "Easy",
-    description:
-      "Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.",
-    link: "https://leetcode.com/problems/valid-parentheses/",
-    completed: false,
+  const handleAddReply = async (discussionId: string) => {
+    if (!newComment.trim()) return;
+    
+    try {
+      await addReply(discussionId, newComment);
+      setNewComment("");
+    } catch (error) {
+      console.error("Error adding reply:", error);
+    }
   };
 
-  const discussions = [
-    {
-      id: 1,
-      author: "Alex Chen",
-      title: "How to optimize Dijkstra's algorithm?",
-      content:
-        "I'm working on a graph problem and wondering about the best ways to optimize Dijkstra's algorithm for large graphs.",
-      timestamp: "2 hours ago",
-      replies: 5,
-      likes: 12,
-    },
-    {
-      id: 2,
-      author: "Sarah Kim",
-      title: "Dynamic Programming vs Greedy approach",
-      content:
-        "When should I choose DP over greedy algorithms? Looking for practical examples.",
-      timestamp: "4 hours ago",
-      replies: 8,
-      likes: 15,
-    },
-    {
-      id: 3,
-      author: "Mike Johnson",
-      title: "Best resources for system design",
-      content:
-        "Can anyone recommend good resources for learning system design concepts?",
-      timestamp: "1 day ago",
-      replies: 12,
-      likes: 23,
-    },
-  ];
+  const handleSetReminder = async (contestId: string) => {
+    try {
+      await addReminder(contestId);
+    } catch (error) {
+      console.error("Error setting reminder:", error);
+    }
+  };
 
-  const collegeUpdates = [
-    {
-      id: 1,
-      title: "Tech Fest 2025 Registration Open",
-      description:
-        "Annual technical festival with coding competitions, hackathons, and tech talks. Register before March 1st.",
-      date: "March 15-17, 2025",
-      type: "event",
-      priority: "high",
-    },
-    {
-      id: 2,
-      title: "Machine Learning Workshop",
-      description:
-        "Hands-on workshop covering ML fundamentals, supervised learning, and practical implementation using Python.",
-      date: "February 20, 2025",
-      type: "workshop",
-      priority: "medium",
-    },
-    {
-      id: 3,
-      title: "Google Summer of Code Info Session",
-      description:
-        "Learn about GSoC application process, project selection, and tips from previous participants.",
-      date: "February 10, 2025",
-      type: "info-session",
-      priority: "high",
-    },
-    {
-      id: 4,
-      title: "Career Fair - Tech Companies",
-      description:
-        "Major tech companies including Google, Microsoft, Amazon will be recruiting for internships and full-time positions.",
-      date: "March 5, 2025",
-      type: "career",
-      priority: "high",
-    },
-  ];
-
-  const contests = [
-    {
-      id: 1,
-      name: "LeetCode Weekly Contest 403",
-      platform: "LeetCode",
-      date: "Sunday, July 14",
-      time: "10:00 AM IST",
-      duration: "1.5 hours",
-      participants: "25,000+",
-      prizes: "T-shirts, LeetCode Premium",
-      status: "upcoming",
-    },
-    {
-      id: 2,
-      name: "CodeChef July Long Challenge",
-      platform: "CodeChef",
-      date: "July 1-31",
-      time: "Ongoing",
-      duration: "10 days",
-      participants: "50,000+",
-      prizes: "Cash prizes up to $1000",
-      status: "ongoing",
-    },
-    {
-      id: 3,
-      name: "Codeforces Round #897",
-      platform: "Codeforces",
-      date: "Friday, July 12",
-      time: "8:00 PM IST",
-      duration: "2 hours",
-      participants: "15,000+",
-      prizes: "Rating points",
-      status: "upcoming",
-    },
-    {
-      id: 4,
-      name: "Google Kickstart Round H",
-      platform: "Google",
-      date: "Saturday, July 20",
-      time: "2:30 PM IST",
-      duration: "3 hours",
-      participants: "10,000+",
-      prizes: "Google swag, interview opportunities",
-      status: "upcoming",
-    },
-  ];
-
-  // Generate problemTopics array for use in the modal
-  const problemTopics = Object.entries(topicProblems).map(
-    ([name, problems]) => ({
-      name,
-      solved: problems.filter((p) => problemStatus[p.name] === "Solved").length,
-      total: problems.length,
-    })
-  );
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Please Sign In</h2>
+          <p className="text-gray-600">You need to sign in to access the dashboard.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Welcome back! Here&apos;s your learning progress overview.
-        </p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Dashboard
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Welcome back, {userProfile?.displayName || user.email}! Here&apos;s your learning progress overview.
+          </p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <Zap className="h-5 w-5 text-yellow-500" />
+            <span className="text-sm font-medium">{stats?.currentStreak || 0} day streak</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Award className="h-5 w-5 text-purple-500" />
+            <span className="text-sm font-medium">Level {Math.floor((progressStats.solvedProblems / 10) + 1)}</span>
+          </div>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {stats.map((stat) => {
+        {displayStats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <Card key={stat.title}>
+            <Card key={stat.title} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {stat.title}
                     </p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {stat.value}
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                      {statsLoading ? "..." : stat.value}
                     </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500">
+                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                       {stat.change}
                     </p>
                   </div>
-                  <Icon className={`h-8 w-8 ${stat.color}`} />
+                  <div className={`p-3 rounded-full ${stat.bgColor}`}>
+                    <Icon className={`h-6 w-6 ${stat.color}`} />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -316,33 +171,80 @@ export default function Dashboard() {
         })}
       </div>
 
+      {/* Progress Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Star className="h-5 w-5 mr-2 text-yellow-500" />
+            Weekly Progress Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Weekly Goal</span>
+                <span className="text-sm text-gray-500">
+                  {stats?.weeklyProgress || 0}/{stats?.weeklyGoal || 10}
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(((stats?.weeklyProgress || 0) / (stats?.weeklyGoal || 10)) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Difficulty Distribution</span>
+                <span className="text-sm text-gray-500">
+                  {progressStats.difficulty.easy.solved}E / {progressStats.difficulty.medium.solved}M / {progressStats.difficulty.hard.solved}H
+                </span>
+              </div>
+              <div className="flex space-x-1">
+                <div className="flex-1 bg-green-500 h-2 rounded-l-full" />
+                <div className="flex-1 bg-yellow-500 h-2" />
+                <div className="flex-1 bg-red-500 h-2 rounded-r-full" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Study Time</span>
+                <span className="text-sm text-gray-500">
+                  {Math.round((stats?.studyTimeWeek || 0) / 60)}h this week
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min((stats?.studyTimeWeek || 0) / 600 * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Daily Challenge */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Target className="h-5 w-5 mr-2 text-orange-600" />
-            Today&apos;s Challenge
+            Todays Challenge
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg">
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900 dark:text-white">
-                {dailyChallenge.title}
+                Valid Parentheses
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {dailyChallenge.description}
+                Given a string s containing just the characters determine if the input string is valid.
               </p>
-              <span
-                className={`inline-block px-2 py-1 rounded-full text-xs font-medium mt-2 ${
-                  dailyChallenge.difficulty === "Easy"
-                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                    : dailyChallenge.difficulty === "Medium"
-                    ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                    : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                }`}
-              >
-                {dailyChallenge.difficulty}
+              <span className="inline-block px-2 py-1 rounded-full text-xs font-medium mt-2 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                Easy
               </span>
             </div>
             <div className="ml-4 space-y-2">
@@ -350,17 +252,15 @@ export default function Dashboard() {
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Solve Now
               </Button>
-              {!dailyChallenge.completed && (
-                <Button size="sm" variant="outline" className="w-full">
-                  Mark Complete
-                </Button>
-              )}
+              <Button size="sm" variant="outline" className="w-full">
+                Mark Complete
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* New Cards Row */}
+      {/* Cards Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Discussion Board */}
         <Card
@@ -379,13 +279,20 @@ export default function Dashboard() {
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
                   Latest Discussion
                 </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  &quot;How to optimize Dijkstra&apos;s algorithm?&quot; - Alex
-                  Chen
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                  5 replies • 2 hours ago
-                </p>
+                {discussions.length > 0 ? (
+                  <>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {discussions[0].title} - {discussions[0].authorName}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      {discussions[0].replies} replies • {discussions[0].likes} likes
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    No discussions yet. Start the conversation!
+                  </p>
+                )}
               </div>
               <Button variant="outline" size="sm" className="w-full">
                 View All Discussions
@@ -408,15 +315,23 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-3">
               <div className="p-3 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  🎓 Tech Fest 2025
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Registration open until March 1st
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                  March 15-17, 2025
-                </p>
+                {updates.length > 0 ? (
+                  <>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      🎓 {updates[0].title}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {updates[0].description.substring(0, 50)}...
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      {updates[0].date}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    No updates available
+                  </p>
+                )}
               </div>
               <Button variant="outline" size="sm" className="w-full">
                 View All Updates
@@ -439,15 +354,23 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-3">
               <div className="p-3 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  🏆 LeetCode Weekly
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                  Contest 403 - Sunday 10AM
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                  25,000+ participants
-                </p>
+                {contests.length > 0 ? (
+                  <>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      🏆 {contests[0].name}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {contests[0].date} - {contests[0].time}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      {contests[0].participants} participants
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    No contests scheduled
+                  </p>
+                )}
               </div>
               <Button variant="outline" size="sm" className="w-full">
                 View All Contests
@@ -458,67 +381,6 @@ export default function Dashboard() {
       </div>
 
       {/* Modals */}
-      {showUpdatesModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                College Updates
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowUpdatesModal(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="space-y-4">
-              {collegeUpdates.map((update) => (
-                <div
-                  key={update.id}
-                  className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {update.title}
-                        </h3>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            update.priority === "high"
-                              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                              : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                          }`}
-                        >
-                          {update.priority}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        {update.description}
-                      </p>
-                      <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-500">
-                        <span className="flex items-center">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {update.date}
-                        </span>
-                        <span className="capitalize">
-                          {update.type.replace("-", " ")}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => setShowUpdatesModal(false)}>Close</Button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showDiscussionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
@@ -548,8 +410,19 @@ export default function Dashboard() {
                   onChange={(e) => setNewDiscussion(e.target.value)}
                   className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 />
+                <textarea
+                  placeholder="Discussion content..."
+                  value={newDiscussionContent}
+                  onChange={(e) => setNewDiscussionContent(e.target.value)}
+                  rows={3}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
                 <div className="flex space-x-2">
-                  <Button size="sm" disabled={!newDiscussion.trim()}>
+                  <Button 
+                    size="sm" 
+                    disabled={!newDiscussion.trim() || !newDiscussionContent.trim()}
+                    onClick={handleAddDiscussion}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Post Discussion
                   </Button>
@@ -572,12 +445,27 @@ export default function Dashboard() {
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                         {discussion.content}
                       </p>
+                      {discussion.tags.length > 0 && (
+                        <div className="flex items-center space-x-1 mt-2">
+                          {discussion.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 text-xs rounded-full"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-500">
-                      <span>{discussion.author}</span>
-                      <span>{discussion.timestamp}</span>
+                      <span>{discussion.authorName}</span>
+                      <span>{discussion.createdAt?.toDate?.()?.toLocaleDateString() || 'Recently'}</span>
+                      <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                        {discussion.category}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-4">
                       <button className="flex items-center space-x-1 text-sm text-gray-500 hover:text-blue-600">
@@ -601,7 +489,11 @@ export default function Dashboard() {
                         onChange={(e) => setNewComment(e.target.value)}
                         className="flex-1 p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                       />
-                      <Button size="sm" disabled={!newComment.trim()}>
+                      <Button 
+                        size="sm" 
+                        disabled={!newComment.trim()}
+                        onClick={() => handleAddReply(discussion.id)}
+                      >
                         <Send className="h-4 w-4" />
                       </Button>
                     </div>
@@ -619,6 +511,74 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* College Updates Modal */}
+      {showUpdatesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                College Updates
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowUpdatesModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-4">
+              {updates.map((update) => (
+                <div
+                  key={update.id}
+                  className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                          {update.title}
+                        </h3>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            update.priority === "high"
+                              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+                              : update.priority === "medium"
+                              ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                              : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                          }`}
+                        >
+                          {update.priority}
+                        </span>
+                        <span className="px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                          {update.type}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        {update.description}
+                      </p>
+                      <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-500">
+                        <span className="flex items-center">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {update.date}
+                        </span>
+                        {update.location && (
+                          <span>{update.location}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <Button onClick={() => setShowUpdatesModal(false)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contests Modal */}
       {showContestsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
@@ -650,7 +610,9 @@ export default function Dashboard() {
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
                             contest.status === "ongoing"
                               ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                              : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                              : contest.status === "upcoming"
+                              ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
                           }`}
                         >
                           {contest.status}
@@ -704,9 +666,14 @@ export default function Dashboard() {
                       View Contest
                     </Button>
                     {contest.status === "upcoming" && (
-                      <Button size="sm">
+                      <Button 
+                        size="sm" 
+                        variant={isUserReminded(contest.id) ? "secondary" : "default"}
+                        onClick={() => handleSetReminder(contest.id)}
+                        disabled={isUserReminded(contest.id)}
+                      >
                         <Clock className="h-4 w-4 mr-2" />
-                        Set Reminder
+                        {isUserReminded(contest.id) ? "Reminder Set" : "Set Reminder"}
                       </Button>
                     )}
                   </div>
@@ -720,190 +687,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {showProblemsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">
-                LeetCode Problems by Topic
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowProblemsModal(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {problemTopics.map((topic) => (
-                <Card key={topic.name}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{topic.name}</CardTitle>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {topic.solved}/{topic.total}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${(topic.solved / topic.total) * 100}%`,
-                        }}
-                      ></div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                  {(topicProblems[topic.name as keyof typeof topicProblems] || []).map(
-  (problem, idx) => {
-    const safeProblem = {
-      ...problem,
-      status: (problem as any).status ?? "Unsolved", // 👈 fallback
-    };
-
-    return (
-      <div
-        key={idx}
-        className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded"
-      >
-        <div className="flex-1">
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {safeProblem.name}
-            </p>
-            <a
-              href={safeProblem.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
-          <span
-            className={`inline-block px-2 py-1 rounded-full text-xs font-medium mt-1 ${
-              safeProblem.difficulty === "Easy"
-                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                : safeProblem.difficulty === "Medium"
-                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-            }`}
-          >
-            {safeProblem.difficulty}
-          </span>
-        </div>
-        <Button
-          size="sm"
-          variant={safeProblem.status === "Solved" ? "default" : "outline"}
-          className={
-            safeProblem.status === "Solved"
-              ? "bg-green-600 hover:bg-green-700"
-              : ""
-          }
-        >
-          {safeProblem.status}
-        </Button>
-      </div>
-    );
-  }
-)}
-
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <Button onClick={() => setShowProblemsModal(false)}>Close</Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Leetcode problem sheet */}
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>LeetCode Problems Sheet</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Object.entries(topicProblems).map(([topic, problems]) => (
-              <div key={topic}>
-                <button
-                  onClick={() => toggleTopic(topic)}
-                  className="w-full flex justify-between items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {topic}
-                  </span>
-                  {expandedTopics.includes(topic) ? (
-                    <ChevronDown className="h-4 w-4 text-gray-500" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-gray-500" />
-                  )}
-                </button>
-                {expandedTopics.includes(topic) && (
-                  <div className="mt-2 space-y-2 ml-4">
-                    {problems.length > 0 ? (
-                      problems.map((problem, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700"
-                        >
-                          <div className="flex flex-col">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-medium text-gray-900 dark:text-white">
-                                {problem.name}
-                              </span>
-                              <a
-                                href={problem.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </div>
-                            <span
-                              className={`mt-1 text-xs font-medium px-2 py-0.5 rounded-full w-max ${getBadgeStyle(
-                                problem.difficulty
-                              )}`}
-                            >
-                              {problem.difficulty}
-                            </span>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant={
-                              problemStatus[problem.name] === "Solved"
-                                ? "default"
-                                : "outline"
-                            }
-                            className={
-                              problemStatus[problem.name] === "Solved"
-                                ? "bg-green-600 hover:bg-green-700"
-                                : ""
-                            }
-                            onClick={() => toggleStatus(problem.name)}
-                          >
-                            {problemStatus[problem.name] || "Unsolved"}
-                          </Button>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 ml-4">
-                        No problems added in this topic yet.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      <LeetCodeProblems />
     </div>
   );
 }

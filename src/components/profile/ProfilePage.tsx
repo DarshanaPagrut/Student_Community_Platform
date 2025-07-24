@@ -69,7 +69,7 @@ export default function ProfilePage({ onBack }: ProfilePageProps) {
 
   const handleBack = () => {
     if (onBack) return onBack();
-    router.push("/dashboard");
+     window.location.reload();
   };
 
   const userStats = [
