@@ -236,9 +236,6 @@ A comprehensive web application built with Next.js and Firebase to foster coding
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -249,4 +246,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email [your-email@example.com] or create an issue in the repository.
+For support, email [pagrutdarshana@gmail.com] or create an issue in the repository.
