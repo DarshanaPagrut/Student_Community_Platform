@@ -246,4 +246,4 @@ A comprehensive web application built with Next.js and Firebase to foster coding
 
 ## 📞 Support
 
-For support, email [pagrutdarshana@gmail.com] or create an issue in the repository.
+For support, email pagrutdarshana@gmail.com or create an issue in the repository.
